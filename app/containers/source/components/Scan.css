@@ -1,0 +1,23 @@
+.pathHead {
+  margin-top: 100px;
+  margin-bottom: 4px;
+}
+
+.pathLine {
+  display: flex; 
+  justify-content: space-between;
+  color: white;
+  background-color: gray;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.pathPath {
+  padding: 4px;
+}
+
+.pathButton {
+  font-size: large;
+  padding-left: 10px;
+  padding-right: 10px;
+}
