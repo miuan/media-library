@@ -3,7 +3,7 @@ import * as path from 'path'
 
 import type { GetState, Dispatch } from '../reducers/types'
 
-import { startfind } from '../../utils/find'
+import { startfind, findMissing } from '../../utils/find'
 import { generateHashForUnhashed } from '../../utils/hash'
 import { writeScan } from '../../utils/common'
 
@@ -13,11 +13,16 @@ export const SET_LIBRARY_STATUS = 'SET_LIBRARY_STATUS'
 export const SET_LIBRARY_PROGRESS = 'UPDATE_MEDIA_PROGRESS'
 export const SET_LIBRARY_LOCATION = 'SET_LIBRARY_LOCATION'
 
+export const UPDATE_LIBRARY_MISSING = 'UPDATE_LIBRARY_MISSING'
+export const UPDATE_LIBRARY_DUPLICATES = 'UPDATE_LIBRARY_DUPLICATES'
+
 export const FORCE_MEDIA_RECREATE = false
 
 export const LIBRARY_STATUS = {
     READY: 'READY',
     FIND_START: 'FIND_START',
+    MISSING_START: 'MISSING_START',
+    DUPLICATIONS_START: 'DUPLICATIONS_START',
     FIND_DONE: 'FIND_DONE',
     HASHING_START: 'HASHING_START',
     HASHING_DONE: 'HASHING_DONE'
@@ -59,6 +64,20 @@ export function setLibraryLocation(location: string, status: string = LIBRARY_ST
     };
 }
 
+export function updateLibraryMissing(missing: any) {
+  return {
+      type: UPDATE_LIBRARY_MISSING,
+      missing
+  }
+}
+
+export function updateLibraryDuplicates(duplicates: any) {
+  return {
+      type: UPDATE_LIBRARY_DUPLICATES,
+      duplicates
+  }
+}
+
 
 export const locateLibrary = (libraryLocation: string = '/Users/milanmedlik/Documents/video/') => {
     return (dispatch: Dispatch) => new Promise(async (resolve, reject) => {
@@ -68,9 +87,19 @@ export const locateLibrary = (libraryLocation: string = '/Users/milanmedlik/Docu
       const updateUnhashed = (unhashed) => setTimeout(() => dispatch(updateLibraryUnhashed(unhashed)), 1)
     
       setTimeout(() => dispatch(setLibraryStatus(LIBRARY_STATUS.FIND_START)), 1)
-      await startfind(mediaLibraryPath, updateMedia, updateUnhashed, !FORCE_MEDIA_RECREATE)
+      const [media, unhashed, missing] = await startfind(mediaLibraryPath, updateMedia, updateUnhashed, !FORCE_MEDIA_RECREATE)
+      setTimeout(() => dispatch(setLibraryStatus(LIBRARY_STATUS.MISSING_START)), 1)
+      
+      //const missing = {} // findMissing(mediaLibraryPath, media)
       setTimeout(() => {
+        dispatch(updateLibraryMissing(missing))
+        dispatch(setLibraryStatus(LIBRARY_STATUS.DUPLICATIONS_START))
+      },1)
+
+      setTimeout(() => {
+          dispatch(updateLibraryMissing(missing))
           dispatch(setLibraryLocation(libraryLocation))
+          dispatch(setLibraryStatus(LIBRARY_STATUS.FIND_DONE))
           resolve();
       }, 1)
       
@@ -88,14 +117,17 @@ export const locateLibrary = (libraryLocation: string = '/Users/milanmedlik/Docu
         
         setTimeout(() => dispatch(setLibraryStatus(LIBRARY_STATUS.HASHING_START)), 1)
         await generateHashForUnhashed(mediaLibraryPath, unhashed, updateUnhashedWithProgress)
-        
+
+        writeScan(mediaLibraryPath, library.media)
+
         setTimeout(() => {
           dispatch(updateLibrary(library.media))
           dispatch(setLibraryStatus(LIBRARY_STATUS.HASHING_DONE))
+          resolve();
         }, 1)
-  
-        writeScan(mediaLibraryPath, library.media)
+      } else {
+        resolve();
       }
-      resolve();
+      
     });
   }

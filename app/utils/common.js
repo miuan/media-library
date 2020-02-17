@@ -1,15 +1,13 @@
 import * as fs from 'fs'
+import * as path from 'path'
 
 let errorReport = ''
 
 export const MEDIA_LIBRARY_NAME = '4.media-library.json'
+export const AUDIO_FORMATS = [ 'ACC', 'MP2', 'MP3', 'VAW']
 export const VIDEO_FORMATS = [ 'MPG', 'MP2', 'MPEG', 'MPE', 'MPV', 'MP4', 'M4P', 'M4V', 'WEBM', 'OGG', 'AVI', 'WMV', 'MOV', 'QT', 'FLV', 'SWF', 'AVCHD' ]
-export const PHOTO_FORMATS = ['JPEG', 'GIF', 'PNG', 'JPG']
+export const PHOTO_FORMATS = ['JPEG', 'GIF', 'PNG', 'JPG', 'HEIC']
 export const RAW_PHOTO_FORMATS = ['IIQ', '3FR', 'DCR', 'K25', 'KDC','CRW', 'CR2', 'CR3', 'ERF', 'MEF', 'MOS' , 'NEF', 'NRW', 'ORF', 'PEF' , 'RW2', 'ARW', 'SRF', 'SR2', 'DNG']
-
-export const FileType = {
-    VIDEO: 0, PHOTO: 1, RAW_PHOTO: 2, OTHER: 3
-}
   
 export interface IFileInfo {
     name: String;
@@ -33,12 +31,40 @@ export interface IFindData {
     other_files_size: Number;
 }
 
+export const FileType = {
+    AUIDIO:'audios', VIDEO: 'videos', PHOTO: 'photos', RAW_PHOTO: 'raw_photos', OTHER: 'other_files'
+}
+
 export const MEDIA_NAMES = [
+    'audio',
     'videos',
     'photos',
     'raw_photos',
     'other_files'
-  ]
+]
+
+export const MEDIA_TYPES = [
+    {
+        category: 'audio',
+        extensions: AUDIO_FORMATS
+    },
+    {
+        category: 'videos',
+        extensions: VIDEO_FORMATS
+    },
+    {
+        category: 'photos',
+        extensions: PHOTO_FORMATS
+    },
+    {
+        category: 'raw',
+        extensions: RAW_PHOTO_FORMATS
+    },
+    {
+        category: 'other_files',
+        extensions: null
+    }
+]
 
 export const takeFileStats = (filePath: string, fullpath: String): IFileInfo  => {
 
@@ -46,32 +72,27 @@ export const takeFileStats = (filePath: string, fullpath: String): IFileInfo  =>
     const size = stats["size"]
     const ctimeMs = stats["ctimeMs"]
 
-    const path = filePath.split('/')
-    const name = path[path.length-1]
+    const {name, ext} = path.parse(filePath)
+    const extension = ext.substr(1).toUpperCase()
 
-    const extensions = name.split('.')
-    const extension = extensions[extensions.length-1].toUpperCase()
+    let category = FileType.OTHER;
 
-    let type = FileType.OTHER;
-
-    if(VIDEO_FORMATS.includes(extension)) {
-        type = FileType.VIDEO
+    // keep hidden in OTHER
+    if(name.indexOf('.') !== 0) {
+        for(const mtype of MEDIA_TYPES) {
+            if(mtype.extensions && mtype.extensions.includes(extension)) {
+                category = mtype.category
+                break
+            }
+        }
     }
-
-    if(PHOTO_FORMATS.includes(extension)) {
-        type = FileType.PHOTO
-    }
-
-    if(RAW_PHOTO_FORMATS.includes(extension)) {
-        type = FileType.RAW_PHOTO
-    }
-
+    
     return {
         filePath,
         size,
         extension,
         ctimeMs,
-        type
+        category
     };
 }
   

@@ -1,6 +1,6 @@
 import * as fs from 'fs'
 import * as path from 'path'
-import { cleanError, addError, takeFileStats, FileType, MEDIA_LIBRARY_NAME } from './common'
+import { cleanError, addError, takeFileStats, FileType, MEDIA_LIBRARY_NAME, MEDIA_NAMES, MEDIA_TYPES } from './common'
 
 
 
@@ -10,43 +10,21 @@ export const startfind = async (mediaLibraryPath: string, updateLibrary, updateU
     const media = {
       totalSize: 0,
       totalFiles: 0,
-      videos: [],
-      video_size: 0,
-      photos: [],
-      photos_size: 0,
-      raw_photos: [],
-      raw_photos_size: 0,
-      other_files: [],
-      other_files_size: 0,
+    }
+
+    for(const mtype of MEDIA_TYPES) {
+      media[mtype.category] = []
+      media[mtype.category + '_size'] = 0
     }
     
     cleanError()
     findRecursive( mediaLibraryPath, '', media)
-    const unhashed = connectLinkedFile(mediaLibraryPath, media, loadMediaFile);
+    const [unhashed, missing] = connectLinkedFile(mediaLibraryPath, media, loadMediaFile);
     
     updateLibrary(media)
     updateUnhashed(unhashed)
   
-    // const srcDir = '/Users/milanmedlik/Documents/video/ambon/fuji/'
-  
-    // const copyData = {
-    //   totalSize: 0,
-    //   totalFiles: 0,
-    //   videos: [],
-    //   video_size: 0,
-    //   photos: [],
-    //   photos_size: 0,
-    //   raw_photos: [],
-    //   raw_photos_size: 0,
-    //   other_files: [],
-    //   other_files_size: 0,
-    // }
-  
-    // findRecursive( srcDir, '', copyData)
-    // const unhashed2 = connectLinkedFile(srcDir, copyData, false);
-    // await copyFiles(srcDir, copyData, mediaLibraryPath, findData)
-  
-    return [media, unhashed]
+    return [media, unhashed, missing]
   }
 
   const findRecursive =  (mediaLibraryPath: string, relativePath: string, findData: IFindData) => {
@@ -65,7 +43,7 @@ export const startfind = async (mediaLibraryPath: string, updateLibrary, updateU
       return false
     }
       
-      for( const file of files) {
+      for(const file of files) {
         const filePath = relativePath + file;
         const fullpath = mediaLibraryPath + filePath;
         const fileStat = fs.statSync(fullpath);
@@ -75,26 +53,9 @@ export const startfind = async (mediaLibraryPath: string, updateLibrary, updateU
         if(fileStat.isFile() || !findRecursive(mediaLibraryPath, path.normalize(filePath + '/'), findData)){      
           const filestats = takeFileStats(filePath, fullpath);
          
-          if(filestats.type === FileType.VIDEO) {
-            findData.videos.push(filestats)
-            findData.video_size += filestats.size
-          }
-  
-          if(filestats.type === FileType.PHOTO) {
-            findData.photos.push(filestats)
-            findData.photos_size += filestats.size
-          }
-  
-          if(filestats.type === FileType.RAW_PHOTO) {
-            findData.raw_photos.push(filestats)
-            findData.raw_photos_size += filestats.size
-          }
-  
-          if(filestats.type === FileType.OTHER) {
-            findData.other_files.push(filestats)
-            findData.other_files_size += filestats.size
-          }
-  
+          findData[filestats.category].push(filestats)
+          findData[filestats.category + '_size'] += filestats.size
+         
           findData.totalSize += filestats.size;
           findData.totalFiles += 1;
         }
@@ -138,50 +99,49 @@ export const startfind = async (mediaLibraryPath: string, updateLibrary, updateU
       files: [],
       totalSize: 0
     }
-  
-    findData.videos.forEach((fileStat)=>{
-      const located = storedData && locateInDataByPath(storedData, 'videos', fileStat.filePath)
-  
-      if(located) {
-        fileStat.hash = located[0].hash
-      } else {
-        unhashed.files.push(fileStat)
-        unhashed.totalSize += fileStat.size;
+
+    for(const media of MEDIA_NAMES) {
+      if(findData[media] && findData[media].length > 0) {
+        for(const fileStat of findData[media]) {
+          const located = storedData && locateInDataByPath(storedData, media, fileStat.filePath)
+    
+          if(located) {
+            fileStat.hash = located[0].hash
+          } else {
+            unhashed.files.push(fileStat)
+            unhashed.totalSize += fileStat.size;
+          }
+        }
       }
-    })
+    }
   
-    findData.photos.forEach((fileStat)=>{
-      const located = storedData && locateInDataByPath(storedData, 'photos', fileStat.filePath)
+    return [unhashed, storedData];
+  }
+
+
+  export const findMissing = (mediaLibraryPath: string, media) => {
+      
+    let missing = {
+      files: [],
+      totalSize: 0
+    }
+
+    for(const mediaName of MEDIA_NAMES) {
+      
+      for(const file of media[mediaName]) {
+
+        if(file.filePath.indexOf('weddings/martin/primary/videos/11-06-') != -1) {
+          // console.log('******$$$ #2', path.join(mediaLibraryPath, file.filePath))
+        }
+
+        const located = fs.existsSync(path.join(mediaLibraryPath, file.filePath))
   
-      if(located) {
-        fileStat.hash = located[0].hash
-      } else {
-        unhashed.files.push(fileStat)
-        unhashed.totalSize += fileStat.size;
+        if(!located) {
+          missing.files.push(file)
+          missing.totalSize += file.size;
+        }
       }
-    })
+    }
   
-    findData.raw_photos.forEach((fileStat)=>{
-      const located = storedData && locateInDataByPath(storedData, 'raw_photos', fileStat.filePath)
-  
-      if(located) {
-        fileStat.hash = located[0].hash
-      } else {
-        unhashed.files.push(fileStat)
-        unhashed.totalSize += fileStat.size;
-      }
-    })
-  
-    findData.other_files.forEach((fileStat)=>{
-      const located = storedData && locateInDataByPath(storedData, 'other_files', fileStat.filePath)
-  
-      if(located) {
-        fileStat.hash = located[0].hash
-      } else {
-        unhashed.files.push(fileStat)
-        unhashed.totalSize += fileStat.size;
-      }
-    })
-  
-    return unhashed;
+    return missing;
   }

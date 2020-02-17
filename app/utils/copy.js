@@ -8,8 +8,7 @@ const locateInLibraryByHash = (data: IFindData, where: string, hash: string) => 
     
     return data[where] && data[where].find((file, idx) => {
       if(file.hash === hash) {
-        index = idx
-        return true
+        return file
       }
     })
   }
@@ -28,6 +27,8 @@ const locateInLibraryByHash = (data: IFindData, where: string, hash: string) => 
       sourceMedia.forEach((fileStat)=>{
         const located = locateInLibraryByHash(libraryMedia, media, fileStat.hash)
     
+        // if(located && fs.existsSync(path.join))
+        
         if(!located) {
           copyMedia.push(fileStat)
           filesForCopy.totalFiles += 1;
@@ -65,7 +66,7 @@ const locateInLibraryByHash = (data: IFindData, where: string, hash: string) => 
       try {
         if(copyData.media[media] && copyData.media[media].length > 0) {
           const mediaDestination = path.join(destination, media)
-          await copyMedia(updatedLib, copyData.media[media], sourceLocation, library.location, mediaDestination, progress, stats)
+          await copyMedia(updatedLib, copyData.media[media], sourceLocation, library.location, mediaDestination, progress, stats, media !== 'other_files')
         } 
       } finally {
 
@@ -83,22 +84,27 @@ const locateInLibraryByHash = (data: IFindData, where: string, hash: string) => 
   
   }
 
-  const copyMedia = async (updateLibrary, files, sourceLocation, libraryLocation, destination, progress, stats) => {
+  const copyMedia = async (updateLibrary, files, sourceLocation, libraryLocation, destination, progress, stats, structured=true) => {
     for( const file of files) {
 
-      const [fullFileDest, fileDest] = generateFileName(file, libraryLocation, destination)
+      const [fullFileDest, fileDest] = generateFileName(file, libraryLocation, destination, structured)
       
       
       await new Promise((resolve, reject) => {
-        fs.copyFile(path.join(sourceLocation, file.filePath), fullFileDest, resolve)
+        const src = path.join(sourceLocation, file.filePath)
+        copyFile(src, fullFileDest, (err) => {
+          if(!fs.existsSync(fullFileDest)){
+            console.error(`FILE: is not exist: ${src} -> ${fullFileDest}`, err)
+          }
+          resolve()
+        })
+        
       })
       
       stats.copiedSize += file.size
       stats.copiedFiles += 1
       const copiedProgress = Math.round((stats.copiedSize/stats.totalSize)*10000)/100
-      console.log('copiedProgress', copiedProgress)
       progress(copiedProgress)
-
 
       const newone = {
         filePath: fileDest[0] == '/' ? fileDest.substr(1) : fileDest,
@@ -106,24 +112,15 @@ const locateInLibraryByHash = (data: IFindData, where: string, hash: string) => 
         size: file.size,
         ctimeMs: file.ctimeMs,
       }
+
       updateLibrary.push(newone)
     }
   }
 
-  const generateFileName = (file, libraryLocation, destination) => {
-    const cdate = new Date(file.ctimeMs)
+  const generateFileName = (file, libraryLocation, destination, structured=true) => {
     
-    const numericMonth = (cdate.getMonth()+1)
-    const month = numericMonth < 10 ? `0${numericMonth}` : `${numericMonth}`
-    const numericDay = (cdate.getDay()+1)
-    const day = numericDay < 10 ? `0${numericDay}` : `${numericDay}`
-
-    const rawHours = cdate.getHours()
-    const numericHours = rawHours% 2 > 0 ? rawHours - 1 : rawHours
-    const hours = numericHours < 10 ? `0${numericHours}` : `${numericHours}`
-
-    const customDir = `/${month}-${day}-${hours}/`
-    const finalDestDir = path.join(destination, customDir)
+    console.log('generateFileName', destination, genDateTime(file))
+    const finalDestDir = structured ? path.join(destination, genDateTime(file)) : destination
     const fullDestDir = path.join(libraryLocation, finalDestDir)
     
     if(!fs.existsSync(fullDestDir)){
@@ -146,4 +143,44 @@ const locateInLibraryByHash = (data: IFindData, where: string, hash: string) => 
       fileDest
     ]
   }
+
+  const genDateTime = (file) => {
+    const cdate = new Date(file.ctimeMs)
+    
+    const numericMonth = (cdate.getMonth()+1)
+    const month = numericMonth < 10 ? `0${numericMonth}` : `${numericMonth}`
+    const numericDay = (cdate.getDay()+1)
+    const day = numericDay < 10 ? `0${numericDay}` : `${numericDay}`
+
+    const rawHours = cdate.getHours()
+    const numericHours = rawHours% 2 > 0 ? rawHours - 1 : rawHours
+    const hours = numericHours < 10 ? `0${numericHours}` : `${numericHours}`
+
+    return `/${month}-${day}-${hours}/`
+  }
   
+  const copyFile = (source, target, cb) => {
+    let cbCalled = false;
+  
+    let rd = fs.createReadStream(source);
+    rd.on("error", (err) => {
+      done(err);
+    })
+
+    let wr = fs.createWriteStream(target);
+    wr.on("error", (err) => {
+      done(err);
+    })
+    wr.on("close", (ex) => {
+      done();
+    });
+
+    rd.pipe(wr);
+  
+    const done = (err) => {
+      if (!cbCalled) {
+        cb(err);
+        cbCalled = true;
+      }
+    }
+  }

@@ -2,7 +2,9 @@ import {
   UPDATE_LIBRARY, 
   UPDATE_LIBRARY_UNHASHED, 
   SET_LIBRARY_STATUS,
-  SET_LIBRARY_LOCATION
+  SET_LIBRARY_LOCATION,
+  UPDATE_LIBRARY_MISSING,
+  UPDATE_LIBRARY_DUPLICATES
 } from './libraryActions';
 import type { Action } from './types';
 
@@ -29,6 +31,16 @@ export default function media (state = {media: {}, unhashed:{}, location: ''}, a
         location: action.location,
         status: action.status
     }
+    case UPDATE_LIBRARY_MISSING:
+      return {
+          ...state,
+          missing: action.missing
+      }
+    case UPDATE_LIBRARY_DUPLICATES:
+      return {
+          ...state,
+          duplicates: action.duplicates
+      }
     default:
       return state;
   }
