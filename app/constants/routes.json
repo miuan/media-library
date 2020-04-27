@@ -1,5 +1,6 @@
 {
   "HOME": "/",
   "COUNTER": "/counter",
-  "COPY": "/copy"
+  "COPY": "/copy",
+  "FILES": "/files/:type"
 }

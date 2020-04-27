@@ -8,6 +8,7 @@ import * as Store from 'electron-store'
 import MediaLibraries from './MediaLibraries'
 import LibraryPanel from '../../library/components/panel'
 import { SOURCE_STATUS } from '../sourceActions';
+import Info from './Info'
 
 const dialog = remote.dialog
 const store = new Store();
@@ -50,7 +51,6 @@ const Scan = ({
   }
 
   const sourceFilesCount = useMemo(() => (source.media? source.media.totalFiles : 0), [source.media])
-  const copyFilesCount = useMemo(()=> (copy.media ? copy.media.totalFiles : 0), [copy.media])
   const copyFilesSize = useMemo(()=> (copy.media ? copy.media.totalSize : 0), [copy.media])
 
   return (
@@ -87,8 +87,7 @@ const Scan = ({
 
       {source.status == SOURCE_STATUS.HASHING_DONE && sourceLocation && (
         <div>
-          <div>{`Files in source: ${sourceFilesCount}`}</div>
-          <div>{`Files for copy: ${copyFilesCount}`}</div>
+          <Info source={source} copy={copy} />
           {copy.media.totalFiles > -1 ?  (<MediaLibraries onSelect={onLibrarySelect}/>) : (<div> nothing to copy </div>) }         
         </div>
       )}

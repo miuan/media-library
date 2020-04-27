@@ -58,7 +58,7 @@ export const Home = ({
       <div>
 
       <button className={'button primary ' + (enabledSelectSource ? '' : 'disabled')} onClick={onSelectSource} >
-          Select Source
+          Select Library
       </button>
       </div>
     </div>
